@@ -1,5 +1,6 @@
 package main
 import (
+    "github.com/kardianos/osext"
     "strings"
     "fmt"
     "os"
@@ -11,12 +12,12 @@ import (
 )
 
 func fail(message string, args ...interface{}) {
-    fmt.Fprintf(os.Stderr, message, args...)
+    fmt.Fprintf(os.Stderr, message + "\n\n", args...)
     os.Exit(1)
 }
 
 func usageAndFail() {
-    fail("Usage: %s <install|uninstall> <targetExecutable...>\n", os.Args[0])
+    fail("Usage: %s <install|uninstall> <targetExecutable...>", os.Args[0])
 }
 
 func getCwdOrFail() string {
@@ -77,7 +78,7 @@ func hasPermission(required os.FileMode, value os.FileMode) bool {
 func makeAbsoluteOrExit(what string) string {
     result, err := filepath.Abs(what)
     if err != nil {
-        fail("It is not possible to make '%s' absolute. Got: %s\n", what, err.Error())
+        fail("It is not possible to make '%s' absolute. Got: %s", what, err.Error())
     }
     return result
 }
@@ -104,23 +105,20 @@ func getAbsoluteSymlinkOf(file string) (string, bool) {
     }
     fileInfo, err := os.Lstat(absoluteFile)
     if err != nil {
-        fail("%s", err.Error())
+        fail("Cannot get absolute symlink. %v", err)
     }
     if (fileInfo.Mode() & os.ModeSymlink) != 0 {
         target, err := os.Readlink(absoluteFile)
         if err != nil {
-            fail("%s", err.Error())
+            fail("Cannot get absolute symlink. %v", err)
         }
         oldCwd := getCwdOrFail()
         if err := os.Chdir(filepath.Dir(file)); err != nil {
-            fail("%s", err.Error())
+            fail("Cannot get absolute symlink. %v", err)
         }
         absolute, err := filepath.Abs(target)
         if err := os.Chdir(oldCwd); err != nil {
-            fail("%s", err.Error())
-        }
-        if err != nil {
-            fail("%s", err.Error())
+            fail("Cannot get absolute symlink. %v", err)
         }
         return absolute, true
     }
@@ -167,12 +165,12 @@ func checkAndInstall(candidate string, absoluteLauncher string) {
     install(candidate, absoluteLauncher)
 }
 
-func installOnAllOf(candidatePatterns []string) {
-    absoluteLauncher := absoluteLauncherFor(os.Args[0])
+func installOnAllOf(this string, candidatePatterns []string) {
+    absoluteLauncher := absoluteLauncherFor(this)
     for _, candidatesPattern := range candidatePatterns {
         candidates, err := filepath.Glob(candidatesPattern)
         if err != nil {
-            fail("Could not install for '%s'. Got: %s\n", candidatesPattern, err.Error())
+            fail("Could not install for '%s'. Got: %v", candidatesPattern, err)
         }
         for _, plainCandidate := range candidates {
             if isExecutable(plainCandidate) {
@@ -200,12 +198,12 @@ func checkAndUninstall(candidate string, absoluteLauncher string) {
     }
 }
 
-func uninstallOnAllOf(candidatePatterns []string) {
-    absoluteLauncher := absoluteLauncherFor(os.Args[0])
+func uninstallOnAllOf(this string, candidatePatterns []string) {
+    absoluteLauncher := absoluteLauncherFor(this)
     for _, candidatesPattern := range candidatePatterns {
         candidates, err := filepath.Glob(candidatesPattern)
         if err != nil {
-            fail("Could not install for '%s'. Got: %s\n", candidatesPattern, err.Error())
+            fail("Could not install for '%s'. Got: %v", candidatesPattern, err)
         }
         for _, plainCandidate := range candidates {
             if isExecutable(plainCandidate) {
@@ -235,7 +233,7 @@ func execute(targetExecutable string) {
             waitStatus = exitError.Sys().(syscall.WaitStatus)
             os.Exit(int(waitStatus.ExitStatus()))
         } else {
-            fail("Could not start process. Got: %s", err)
+            fail("Could not start process. Got: %v", err)
         }
     } else {
         waitStatus = command.ProcessState.Sys().(syscall.WaitStatus)
@@ -277,15 +275,15 @@ func permitExecutionAndDisplayInstructions() {
     os.Exit(127)
 }
 
-func runAsInstallerMode() {
+func runAsInstallerMode(this string) {
     if len(os.Args) <= 2 {
         usageAndFail()
     }
     command := strings.ToLower(strings.TrimSpace(os.Args[1]))
     if command == "install" || command == "i" {
-        installOnAllOf(os.Args[2:])
+        installOnAllOf(this, os.Args[2:])
     } else if command == "uninstall" || command == "u" || command == "remove" || command == "r" {
-        uninstallOnAllOf(os.Args[2:])
+        uninstallOnAllOf(this, os.Args[2:])
     } else {
         usageAndFail()
     }
@@ -293,7 +291,10 @@ func runAsInstallerMode() {
 
 
 func main() {
-    this := os.Args[0]
+    this, err := osext.Executable()
+    if err != nil {
+        fail("Could not get name of myself. Got: %v", err)
+    }
     if _, ok := getAbsoluteSymlinkOf(this); ok {
         targetExecutable := createTargetExecutableFor(this)
         if _, err := os.Stat(targetExecutable); err == nil {
@@ -303,9 +304,9 @@ func main() {
                 permitExecutionAndDisplayInstructions()
             }
         } else {
-            runAsInstallerMode()
+            runAsInstallerMode(this)
         }
     } else {
-        runAsInstallerMode()
+        runAsInstallerMode(this)
     }
 }
