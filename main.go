@@ -289,9 +289,25 @@ func runAsInstallerMode(this string) {
     }
 }
 
+func resolveThisExecutable() (string, error) {
+    if runtime.GOOS == "windows" {
+        return osext.Executable()
+    } else {
+        this := os.Args[0]
+        if this[0] == '/' || this[0] == '.' {
+            return makeAbsoluteOrExit(this), nil
+        } else {
+            execIsInPath, err := exec.LookPath(this)
+            if err != nil {
+               return "", err
+            }
+            return execIsInPath, nil
+        }
+    }
+}
 
 func main() {
-    this, err := osext.Executable()
+    this, err := resolveThisExecutable()
     if err != nil {
         fail("Could not get name of myself. Got: %v", err)
     }
