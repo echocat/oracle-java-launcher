@@ -16,6 +16,9 @@ function buildForPlattform {
 	go-crosscompile-build "$1/$2"
 	checkExit $?
 
+	GOOS="$1" GOARCH="$2" "${GOROOT}/bin/go" get "github.com/kardianos/osext"
+	checkExit $?
+
 	GOOS="$1" GOARCH="$2" "${GOROOT}/bin/go" build -o "${BUILD_DIR}/oracle-java-launcher-${1}-${2}${3}" "${BASE}/main.go"
 	checkExit $?
 }
