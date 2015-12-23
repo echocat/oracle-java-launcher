@@ -7,7 +7,7 @@ import (
     "runtime"
     "os/exec"
     "io/ioutil"
-    "reflect"
+    "syscall"
 )
 
 func fail(message string, args ...interface{}) {
@@ -229,17 +229,18 @@ func execute(targetExecutable string) {
         Stderr: os.Stderr,
     }
 
-    if err := command.Start(); err != nil {
-        fmt.Fprintf(os.Stderr, "Could not start delegate. Got: %s", err.Error())
-        os.Exit(127)
+    var waitStatus syscall.WaitStatus
+    if err := command.Run(); err != nil {
+        if exitError, ok := err.(*exec.ExitError); ok {
+            waitStatus = exitError.Sys().(syscall.WaitStatus)
+            os.Exit(int(waitStatus.ExitStatus()))
+        } else {
+            fail("Could not start process. Got: %s", err)
+        }
+    } else {
+        waitStatus = command.ProcessState.Sys().(syscall.WaitStatus)
+        os.Exit(int(waitStatus.ExitStatus()))
     }
-
-    command.Wait()
-    sys := command.ProcessState.Sys()
-    fmt.Println(reflect.TypeOf(sys))
-//    exitStatus := sys.(syscall.WaitStatus)
-//    fmt.Print("Exitcode: ", exitStatus)
-//    os.Exit(int(exitStatus.ExitCode))
 }
 
 func isEnabled(value string) bool {
