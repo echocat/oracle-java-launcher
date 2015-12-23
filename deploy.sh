@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-set -e
-
 VERSION=0.1.0
 
 export GITHUB_REPO=oracle-java-launcher
