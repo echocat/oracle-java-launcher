@@ -1,9 +1,9 @@
 test:
   override:
-    - make.sh
+    - ./make.sh
 
 deployment:
   hub:
     branch: /.*/
     commands:
-      - deploy.sh
+      - ./deploy.sh
