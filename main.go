@@ -6,8 +6,8 @@ import (
     "path/filepath"
     "runtime"
     "os/exec"
-    "syscall"
     "io/ioutil"
+    "reflect"
 )
 
 func fail(message string, args ...interface{}) {
@@ -234,15 +234,12 @@ func execute(targetExecutable string) {
         os.Exit(127)
     }
 
-    if err := command.Wait(); err != nil {
-        if exitError, ok := err.(*exec.ExitError); ok {
-            if exitStatus, ok := exitError.Sys().(syscall.WaitStatus); ok {
-                os.Exit(int(exitStatus.ExitCode))
-            }
-        }
-    }
-
-    os.Exit(0)
+    command.Wait()
+    sys := command.ProcessState.Sys()
+    fmt.Println(reflect.TypeOf(sys))
+//    exitStatus := sys.(syscall.WaitStatus)
+//    fmt.Print("Exitcode: ", exitStatus)
+//    os.Exit(int(exitStatus.ExitCode))
 }
 
 func isEnabled(value string) bool {
